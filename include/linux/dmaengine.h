@@ -799,6 +799,10 @@ struct dma_filter {
  *	paused. Returns 0 or an error code
  * @device_terminate_all: Aborts all transfers on a channel. Returns 0
  *	or an error code
+ * @device_terminate_cookie: Terminate the given transaction. If argument
+ *	abort is true, abort the given transaction, otherwise wait for
+ *	completion. If channel has descriptors queued up, they will be
+ *	submitted to hardware after this.
  * @device_synchronize: Synchronizes the termination of a transfers to the
  *  current context.
  * @device_tx_status: poll for transaction completion, the optional
@@ -892,6 +896,8 @@ struct dma_device {
 	int (*device_pause)(struct dma_chan *chan);
 	int (*device_resume)(struct dma_chan *chan);
 	int (*device_terminate_all)(struct dma_chan *chan);
+	int (*device_terminate_cookie)(struct dma_chan *chan,
+				       dma_cookie_t cookie, bool abort);
 	void (*device_synchronize)(struct dma_chan *chan);
 
 	enum dma_status (*device_tx_status)(struct dma_chan *chan,
@@ -1052,6 +1058,28 @@ static inline int dmaengine_terminate_all(struct dma_chan *chan)
 {
 	if (chan->device->device_terminate_all)
 		return chan->device->device_terminate_all(chan);
+
+	return -ENOSYS;
+}
+
+/**
+ * dmaengine_terminate_cookie() - Terminate the given transaction
+ * @chan: The channel for which to terminate the transfer
+ * @cookie: The transaction to be terminated
+ * @abort: The mode of terminate, immediate abort of wait till end of
+ *	transaction
+ *
+ * After the termination, if the channel has more transactions in pending
+ * list, they will get submitted to the hardware
+ */
+static inline int dmaengine_terminate_cookie(struct dma_chan *chan,
+					     dma_cookie_t cookie, bool abort)
+{
+	if (chan->device->device_terminate_cookie)
+		return chan->device->device_terminate_cookie(chan, cookie, abort);
+
+	/* TODO: should we add caps for this and check */
+	/* should we validate the cookie here or leave to caller/driver? */
 
 	return -ENOSYS;
 }
